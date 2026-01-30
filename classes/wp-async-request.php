@@ -1,4 +1,6 @@
 <?php
+namespace MPF\BackgroundProcessing;
+
 /**
  * WP Async Request
  *
