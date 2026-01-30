@@ -1,4 +1,6 @@
 <?php
+namespace MPF\BackgroundProcessing;
+
 /**
  * WP Async Request
  *
@@ -142,7 +144,7 @@ abstract class WP_Async_Request {
 			'timeout'   => 5,
 			'blocking'  => false,
 			'body'      => $this->data,
-			'cookies'   => $_COOKIE, // Passing cookies ensures request is performed as initiating user.
+            'cookies' => $this->get_sanitized_cookies(), // Passing cookies ensures request is performed as initiating user.
 			'sslverify' => apply_filters( 'https_local_ssl_verify', false ), // Local requests, fine to pass false.
 		);
 
@@ -192,7 +194,42 @@ abstract class WP_Async_Request {
 		return $return;
 	}
 
-	/**
+    /**
+     * Return sanitized and filtered cookies for async requests.
+     *
+     * This replaces the original direct $_COOKIE usage to comply with WP.org security requirements.
+     *
+     * @return array
+     */
+    protected function get_sanitized_cookies() {
+        $cookies = [];
+        $allowed_cookie_prefixes = [
+            'wordpress_logged_in_',
+            'wordpress_sec_',
+            'wp-settings-',
+            'wp-settings-time-',
+        ];
+
+        foreach ($_COOKIE as $name => $value) {
+            foreach ($allowed_cookie_prefixes as $prefix) {
+                if (strpos($name, $prefix) === 0) {
+
+                    if (function_exists('sanitize_text_field') && function_exists('wp_unslash')) {
+                        $cookies[sanitize_key($name)] = sanitize_text_field(wp_unslash($value));
+                    } else {
+                        // Minimal fallback sanitization
+                        $cookies[preg_replace('/[^a-zA-Z0-9_\-]/', '', $name)] = filter_var($value, FILTER_SANITIZE_STRING);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return $cookies;
+    }
+
+    /**
 	 * Handle a dispatched request.
 	 *
 	 * Override this method to perform any actions required
